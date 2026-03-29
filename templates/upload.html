@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>YOLO 图片检测</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 40px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        .detection-item {
+            background-color: white;
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            color: red;
+            background-color: #ffe0e0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            color: green;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .loading {
+            color: #ff9800;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>YOLO 物体检测系统</h1>
+    <p>支持的物体类别：人、车、猫、狗、手机、电脑等 80 种常见物体</p>
+    
+    <div class="upload-area">
+        <form id="uploadForm" enctype="multipart/form-data">
+            <p>选择要检测的图片：</p>
+            <input type="file" name="file" id="fileInput" accept="image/*" required>
+            <br><br>
+            <button type="submit">上传并检测</button>
+        </form>
+    </div>
+    
+    <div id="result" class="result">
+        <p>等待上传...</p>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').onsubmit = async function(e) {
+            e.preventDefault();  // 阻止表单默认提交
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showError('请选择图片');
+                return;
+            }
+            
+            // 显示加载中
+            showLoading();
+            
+            // 创建 FormData 对象
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                // 发送请求
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showResult(data);
+                } else {
+                    showError(data.error || '检测失败');
+                }
+            } catch (error) {
+                showError('网络错误: ' + error.message);
+            }
+        };
+        
+        function showLoading() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p class="loading">🔄 正在检测中，请稍候...（首次运行会下载模型，稍慢）</p>';
+        }
+        
+        function showError(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="error">❌ 错误: ${message}</div>`;
+        }
+        
+        function showResult(data) {
+            const resultDiv = document.getElementById('result');
+            
+            if (data.count === 0) {
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <p>✅ 上传成功！</p>
+                        <p>📁 文件名: ${data.filename}</p>
+                        <p>🔍 未检测到物体</p>
+                        <p>💡 提示：尝试上传包含人、车、猫、狗等物体的清晰图片</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 生成检测结果表格
+            let tableHtml = `
+                <div class="success">
+                    <p>✅ 检测完成！</p>
+                    <p>📁 文件名: ${data.filename}</p>
+                    <p>🎯 检测到 ${data.count} 个物体</p>
+                </div>
+                <h3>检测结果：</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>物体类别</th>
+                            <th>置信度</th>
+                            <th>位置 (x1,y1,x2,y2)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            for (let item of data.detections) {
+                let confidencePercent = (item.confidence * 100).toFixed(1);
+                let confidenceColor = item.confidence > 0.7 ? 'green' : (item.confidence > 0.5 ? 'orange' : 'red');
+                tableHtml += `
+                    <tr>
+                        <td><strong>${item.class}</strong></td>
+                        <td style="color: ${confidenceColor}">${confidencePercent}%</td>
+                        <td style="font-family: monospace">[${item.bbox.join(', ')}]</td>
+                    </tr>
+                `;
+            }
+            
+            tableHtml += `</tbody></table>`;
+            resultDiv.innerHTML = tableHtml;
+        }
+    </script>
+</body>
+</html>

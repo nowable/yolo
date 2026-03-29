@@ -1,0 +1,17 @@
+# Python 虚拟环境
+venv/
+
+# 模型与压缩包
+*.tar
+*.pt
+
+# 上传文件
+uploads/
+
+# 编辑器缓存
+.marscode/
+.cursor/
+.vscode/
+
+# 系统文件
+Thumbs.db
